@@ -1,0 +1,3 @@
+image: lab2-api:dev
+replicas: 1
+otlpEndpoint: http://jaeger:4318

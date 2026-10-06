@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: {{ .Values.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: api
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.otlpEndpoint }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http

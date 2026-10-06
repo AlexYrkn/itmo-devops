@@ -1,0 +1,54 @@
+# prometheus-community/prometheus: Prometheus + Alertmanager
+
+prometheus-pushgateway:
+  enabled: false
+
+extraScrapeConfigs: |
+  - job_name: api
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["api:8000"]
+
+serverFiles:
+  alerting_rules.yml:
+    groups:
+      - name: api-critical
+        rules:
+          - alert: APIHighErrorRate
+            expr: sum(rate(http_requests_total{job="api",status=~"5.."}[2m])) / sum(rate(http_requests_total{job="api"}[2m])) > 0.05
+            for: 30s
+            labels:
+              severity: critical
+            annotations:
+              summary: API error rate is above 5%
+              description: More than 5% of API requests failed. Check API logs and Jaeger traces.
+          - alert: APIHighP95Latency
+            expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="api"}[2m]))) > 1
+            for: 30s
+            labels:
+              severity: critical
+            annotations:
+              summary: API p95 latency is above 1 second
+              description: p95 response time exceeds 1s. Find slow spans in Jaeger.
+          - alert: APIDown
+            expr: up{job="api"} == 0
+            for: 30s
+            labels:
+              severity: critical
+            annotations:
+              summary: API is unavailable
+              description: Prometheus cannot scrape the API. Check pod status and Kubernetes events.
+
+alertmanager:
+  config:
+    route:
+      receiver: api-webhook
+      group_by: [ alertname ]
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+    receivers:
+      - name: api-webhook
+        webhook_configs:
+          - url: http://api:8000/alerts
+            send_resolved: true

@@ -1,0 +1,59 @@
+# grafana/grafana
+
+adminPassword: lab2admin
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server
+        isDefault: true
+      - name: Loki
+        type: loki
+        url: http://loki:3100
+        jsonData:
+          # trace_id в строке лога становится ссылкой на трейс в Jaeger
+          derivedFields:
+            - name: trace_id
+              matcherRegex: '"trace_id": "(\w+)"'
+              url: 'http://localhost:16686/trace/${__value.raw}'
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: default
+        folder: Lab 2
+        type: file
+        options:
+          path: /var/lib/grafana/dashboards/default
+
+dashboards:
+  default:
+    api-red:
+      json: |
+        {
+          "title": "API RED",
+          "uid": "lab2-red",
+          "refresh": "5s",
+          "time": {"from": "now-15m", "to": "now"},
+          "panels": [
+            {
+              "type": "timeseries", "title": "Request rate (req/s)",
+              "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+              "targets": [{"expr": "sum by (path) (rate(http_requests_total{job=\"api\"}[1m]))", "legendFormat": "{{path}}"}]
+            },
+            {
+              "type": "timeseries", "title": "Error ratio",
+              "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+              "targets": [{"expr": "sum(rate(http_requests_total{job=\"api\",status=~\"5..\"}[1m])) / sum(rate(http_requests_total{job=\"api\"}[1m]))", "legendFormat": "5xx ratio"}]
+            },
+            {
+              "type": "timeseries", "title": "Response latency p95 (s)",
+              "gridPos": {"x": 0, "y": 8, "w": 24, "h": 8},
+              "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"api\"}[1m])))", "legendFormat": "p95"}]
+            }
+          ]
+        }

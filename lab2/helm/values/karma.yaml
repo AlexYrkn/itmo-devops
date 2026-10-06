@@ -1,0 +1,5 @@
+# wiremind/karma
+
+env:
+  - name: ALERTMANAGER_URI
+    value: http://prometheus-alertmanager:9093
