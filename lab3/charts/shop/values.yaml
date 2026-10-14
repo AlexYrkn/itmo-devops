@@ -4,7 +4,7 @@ database:
   url: postgres://app@shop-db-rw:5432/app?sslmode=disable
 
 api:
-  replicas: 3
+  replicas: 4
   image:
     repository: shop-api
     tag: "0.1.0"
