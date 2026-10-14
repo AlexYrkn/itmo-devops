@@ -1,0 +1,25 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-privileged
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [kube-system, kyverno, monitoring, local-path-storage, cnpg-system]
+  variables:
+    - name: containers
+      expression: object.spec.containers + object.spec.?initContainers.orValue([])
+  validations:
+    - expression: >-
+        variables.containers.all(c, !c.?securityContext.?privileged.orValue(false))
+      message: Privileged containers are not allowed.
+

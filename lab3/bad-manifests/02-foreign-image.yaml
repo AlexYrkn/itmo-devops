@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: foreign-image
+  labels:
+    app.kubernetes.io/name: foreign-image
+    app.kubernetes.io/part-of: policy-test
+spec:
+  containers:
+    - name: app
+      image: nginx:1.27
+      resources:
+        requests: {cpu: 10m, memory: 16Mi}
+        limits: {memory: 32Mi}

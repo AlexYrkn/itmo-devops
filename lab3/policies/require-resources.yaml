@@ -1,0 +1,27 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-resources
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [kube-system, kyverno, monitoring, local-path-storage, cnpg-system]
+  variables:
+    - name: containers
+      expression: object.spec.containers + object.spec.?initContainers.orValue([])
+  validations:
+    - expression: >-
+        variables.containers.all(c, ['cpu', 'memory'].all(r, r in c.?resources.?requests.orValue({})))
+      message: Each container must set resources.requests.cpu and resources.requests.memory.
+    - expression: >-
+        variables.containers.all(c, 'memory' in c.?resources.?limits.orValue({}))
+      message: Each container must set resources.limits.memory.

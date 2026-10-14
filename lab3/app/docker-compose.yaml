@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: shop
+      POSTGRES_DB: shop
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shop -d shop"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      args:
+        SERVICE: api
+    image: shop-api:dev
+    environment:
+      DATABASE_URL: postgres://shop:shop@postgres:5432/shop?sslmode=disable
+      PORT: "8080"
+      APP_VERSION: dev
+      HEALTH_FAIL: ${HEALTH_FAIL:-false}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      args:
+        SERVICE: worker
+    image: shop-worker:dev
+    environment:
+      DATABASE_URL: postgres://shop:shop@postgres:5432/shop?sslmode=disable
+      PORT: "8081"
+      POLL_INTERVAL_SECONDS: "5"
+      BATCH_SIZE: "10"
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

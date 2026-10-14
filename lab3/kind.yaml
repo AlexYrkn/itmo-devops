@@ -1,0 +1,13 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080 # shop api
+        hostPort: 8080
+      - containerPort: 30300 # grafana
+        hostPort: 3000
+      - containerPort: 30090 # prometheus
+        hostPort: 9090
+      - containerPort: 30093 # alertmanager
+        hostPort: 9093
