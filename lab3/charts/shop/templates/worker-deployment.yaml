@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-worker"
+  labels:
+    app.kubernetes.io/name: worker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: shop
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: worker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: worker
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: shop
+    spec:
+      containers:
+        - name: worker
+          image: "{{ .Values.registry }}/{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          ports:
+            - name: http
+              containerPort: {{ .Values.worker.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.worker.port | quote }}
+            - name: POLL_INTERVAL_SECONDS
+              value: {{ .Values.worker.pollIntervalSeconds | quote }}
+            - name: DATABASE_URL
+              value: {{ .Values.database.url | quote }}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "{{ .Values.worker.resources.requests.cpu }}"
+              memory: "{{ .Values.worker.resources.requests.memory }}"
+            limits:
+              memory: "{{ .Values.worker.resources.limits.memory }}"

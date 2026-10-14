@@ -1,0 +1,27 @@
+registry: registry.shop.local
+
+database:
+  url: postgres://app@shop-db-rw:5432/app?sslmode=disable
+
+api:
+  replicas: 3
+  image:
+    repository: shop-api
+    tag: "0.1.0"
+  port: 8080
+  nodePort: 30080
+  healthFail: false
+  resources:
+    requests: {cpu: 50m, memory: 32Mi}
+    limits: {memory: 64Mi}
+
+worker:
+  replicas: 2
+  image:
+    repository: shop-worker
+    tag: "0.1.0"
+  port: 8081
+  pollIntervalSeconds: 5
+  resources:
+    requests: {cpu: 20m, memory: 32Mi}
+    limits: {memory: 64Mi}
