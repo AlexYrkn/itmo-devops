@@ -39,6 +39,10 @@ spec:
               value: {{ .Values.api.healthFail | quote }}
             - name: DATABASE_URL
               value: {{ .Values.database.url | quote }}
+          lifecycle:
+            preStop:
+               sleep:
+                 seconds: 5
           readinessProbe:
             httpGet: {path: /health, port: http}
             periodSeconds: 5

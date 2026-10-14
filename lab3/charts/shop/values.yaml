@@ -7,7 +7,7 @@ api:
   replicas: 4
   image:
     repository: shop-api
-    tag: "0.1.0"
+    tag: "0.3.0"
   port: 8080
   nodePort: 30080
   healthFail: false
