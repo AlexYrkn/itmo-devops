@@ -38,7 +38,10 @@ spec:
             - name: HEALTH_FAIL
               value: {{ .Values.api.healthFail | quote }}
             - name: DATABASE_URL
-              value: {{ .Values.database.url | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-db-app"
+                  key: uri
           lifecycle:
             preStop:
                sleep:

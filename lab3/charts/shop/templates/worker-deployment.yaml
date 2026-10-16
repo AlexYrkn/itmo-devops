@@ -31,7 +31,10 @@ spec:
             - name: POLL_INTERVAL_SECONDS
               value: {{ .Values.worker.pollIntervalSeconds | quote }}
             - name: DATABASE_URL
-              value: {{ .Values.database.url | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-db-app"
+                  key: uri
           readinessProbe:
             httpGet: {path: /health, port: http}
             periodSeconds: 5
