@@ -1,0 +1,43 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: "{{ .Release.Name }}"
+  labels:
+    app.kubernetes.io/name: shop
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: shop
+spec:
+  groups:
+    - name: shop
+      rules:
+        - alert: ShopApiDown
+          expr: |
+            sum(up{namespace="{{ .Release.Namespace }}", job="{{ .Release.Name }}-api"}) == 0
+            or absent(up{namespace="{{ .Release.Namespace }}", job="{{ .Release.Name }}-api"})
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: No api pod is responding
+            description: Prometheus cannot scrape any api pod, orders are not being accepted.
+
+        - alert: ShopApiRolloutStuck
+          expr: |
+            kube_deployment_status_replicas_unavailable{namespace="{{ .Release.Namespace }}", deployment="{{ .Release.Name }}-api"} > 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: api has unavailable replicas for over 2 minutes
+            description: New pods fail readiness (broken release or crashloop). Old pods still serve traffic, consider a rollback.
+
+        - alert: ShopOrdersNotProcessed
+          expr: |
+            time() - max(shop_worker_last_success_timestamp_seconds{namespace="{{ .Release.Namespace }}"}) > 60
+            or absent(shop_worker_last_success_timestamp_seconds{namespace="{{ .Release.Namespace }}"})
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: Orders are not being processed
+            description: No worker has completed a processing cycle for over a minute. Worker is down or cannot reach postgres.

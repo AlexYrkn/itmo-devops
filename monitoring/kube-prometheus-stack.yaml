@@ -1,0 +1,40 @@
+fullnameOverride: kps
+
+defaultRules:
+  create: false
+
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheus:
+  service:
+    type: NodePort
+    nodePort: 30090
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+
+alertmanager:
+  service:
+    type: NodePort
+    nodePort: 30093
+
+grafana:
+  adminPassword: lab2admin
+  defaultDashboardsEnabled: false
+  service:
+    type: NodePort
+    nodePort: 30300
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki:3100

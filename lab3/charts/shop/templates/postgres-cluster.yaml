@@ -1,0 +1,28 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: "{{ .Release.Name }}-db"
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: shop
+spec:
+  instances: {{ .Values.postgres.instances }}
+  imageName: "{{ .Values.postgres.image }}"
+  inheritedMetadata:
+    labels:
+      app.kubernetes.io/name: postgres
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/part-of: shop
+  resources:
+    requests:
+      cpu: "{{ .Values.postgres.resources.requests.cpu }}"
+      memory: "{{ .Values.postgres.resources.requests.memory }}"
+    limits:
+      memory: "{{ .Values.postgres.resources.limits.memory }}"
+  storage:
+    size: "{{ .Values.postgres.storage }}"
+  bootstrap:
+    initdb:
+      database: app
+      owner: app

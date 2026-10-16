@@ -1,0 +1,24 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-labels
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [kube-system, kyverno, monitoring, local-path-storage, cnpg-system]
+  validations:
+    - expression: >-
+        object.metadata.?labels['app.kubernetes.io/name'].orValue('') != ''
+      message: "Need non-empty label: app.kubernetes.io/name."
+    - expression: >-
+        object.metadata.?labels['app.kubernetes.io/part-of'].orValue('') != ''
+      message: "Need non-empty label: app.kubernetes.io/part-of."

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: privileged
+  labels:
+    app.kubernetes.io/name: privileged
+    app.kubernetes.io/part-of: policy-test
+spec:
+  containers:
+    - name: app
+      image: registry.shop.local/shop-api:0.1.0
+      resources:
+        requests: {cpu: 10m, memory: 16Mi}
+        limits: {memory: 32Mi}
+      securityContext:
+        privileged: true
