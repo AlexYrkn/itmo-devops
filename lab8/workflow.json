@@ -1,0 +1,550 @@
+{
+  "id": "accessReview",
+  "name": "Access Review",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "65ff1410-d6a9-46dd-88da-388ea9039681",
+      "name": "Weekly schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        -208
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "c54e78d6-012d-42e5-9b15-80e96729a129",
+      "name": "Manual run",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "access-review",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "5c601de4-5257-4b8d-b2bf-bbc1cc5d4b27",
+      "name": "API trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        208
+      ],
+      "webhookId": "91758e77-e7b6-4355-ae24-ea662fd7c791"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? {};\nconst today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' });\nreturn [{ json: {\n  review_date: /^\\d{4}-\\d{2}-\\d{2}$/.test(body.review_date ?? '') ? body.review_date : today,\n  owner: 'hodzhakhov',\n  repo: 'infra-rbac',\n  trigger: $json.body ? 'api' : ($json.timestamp ? 'schedule' : 'manual'),\n} }];\n"
+      },
+      "id": "a23e9a01-eb47-4bc7-bdec-6e9a0ba04d2f",
+      "name": "Prepare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://filesystem-mcp:8000/mcp",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "read_text_file",
+          "cachedResultName": "read_text_file"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ path: '/data/policies/access-policy.yaml' }) }}",
+        "options": {}
+      },
+      "id": "c5a60ecc-ceb5-4528-a28a-05a464c903a1",
+      "name": "Read policy",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://github-mcp:8000/mcp",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "get_repository_tree",
+          "cachedResultName": "get_repository_tree"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ owner: $('Prepare').first().json.owner, repo: $('Prepare').first().json.repo, recursive: true, path_filter: 'clusters/' }) }}",
+        "options": {}
+      },
+      "id": "78f61cc4-f192-412e-909e-137b0b636d36",
+      "name": "List repository tree",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const texts = o => typeof o === 'string'\n  ? (() => { try { const p = JSON.parse(o); return typeof p === 'object' && p ? texts(p) : [o]; } catch { return [o]; } })()\n  : Array.isArray(o) ? o.flatMap(texts)\n  : o && typeof o === 'object' ? Object.values(o).flatMap(texts) : [];\n\nconst tree = texts($json).join('\\n');\nconst rolebindings = [...new Set(tree.match(/clusters\\/[\\w.\\/-]+\\/rolebindings\\/[\\w.-]+\\.yaml/g) ?? [])].sort();\nif (!rolebindings.length) throw new Error('No RoleBindings found in the repository tree');\nreturn ['teams.yaml', ...rolebindings].map(path => ({ json: { path } }));\n"
+      },
+      "id": "f4aac599-db9a-4a62-bf31-2e66339de6c3",
+      "name": "Select files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://github-mcp:8000/mcp",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "get_file_contents",
+          "cachedResultName": "get_file_contents"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ owner: $('Prepare').first().json.owner, repo: $('Prepare').first().json.repo, path: $json.path }) }}",
+        "options": {}
+      },
+      "id": "e4f1a06f-8300-4e3b-bca0-dcb4d1967a85",
+      "name": "Read files",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1.1,
+      "position": [
+        1104,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const texts = o => typeof o === 'string'\n  ? (() => { try { const p = JSON.parse(o); return typeof p === 'object' && p ? texts(p) : [o]; } catch { return [o]; } })()\n  : Array.isArray(o) ? o.flatMap(texts)\n  : o && typeof o === 'object' ? Object.values(o).flatMap(texts) : [];\n\nconst p = $('Prepare').first().json;\nconst policy = texts($('Read policy').first().json).join('\\n');\nconst soonDays = Number((policy.match(/expiring_soon_days:\\s*(\\d+)/) ?? [])[1] ?? 3);\nconst paths = $('Select files').all().map(i => i.json.path);\nconst files = $input.all().map((item, i) => ({ path: paths[i], text: texts(item.json).join('\\n') }));\n\nconst teams = files.find(f => f.path === 'teams.yaml').text;\nconst members = new Set([...teams.matchAll(/members:\\s*\\[([^\\]]*)\\]/g)]\n  .flatMap(m => m[1].split(',').map(x => x.trim()).filter(Boolean)));\nconst plusDays = (d, n) => new Date(Date.parse(d) + n * 86400000).toISOString().slice(0, 10);\nconst soonLimit = plusDays(p.review_date, soonDays);\n\nconst findings = [];\nconst rolebindings = files.filter(f => f.path !== 'teams.yaml');\nfor (const f of rolebindings) {\n  const rb = {\n    file: f.path,\n    env: f.path.split('/')[1],\n    namespace: (f.text.match(/namespace:\\s*([\\w-]+)/) ?? [])[1] ?? null,\n    login: (f.text.match(/name:\\s*([\\w.-]+)@/) ?? [])[1] ?? null,\n    role: (f.text.match(/roleRef:[\\s\\S]*?name:\\s*([\\w-]+)/) ?? [])[1] ?? null,\n    expires_at: (f.text.match(/expires-at:\\s*\"?(\\d{4}-\\d{2}-\\d{2})/) ?? [])[1] ?? null,\n  };\n  const add = type => findings.push({ type, ...rb });\n  if (rb.role === 'admin' || (rb.role === 'edit' && rb.env === 'prod')) add('policy_violation');\n  if (rb.login && !members.has(rb.login)) add('orphaned');\n  if (rb.expires_at && rb.expires_at < p.review_date) add('expired');\n  else if (rb.expires_at && rb.expires_at <= soonLimit) add('expiring_soon');\n}\n\nreturn [{ json: { ...p, expiring_soon_days: soonDays, checked: rolebindings.length, findings } }];\n"
+      },
+      "id": "744a526c-7e7b-4521-841a-03117b62b3d0",
+      "name": "Classify findings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "eb3b21c7-90fb-4e14-bb9a-de213de4a345",
+              "leftValue": "={{ $json.findings.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0bef6c12-bdc3-4d04-a7a2-0fb6f8d43efd",
+      "name": "Any findings?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1552,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Investigate the findings of the access review {{ $json.review_date }}.\nGitHub tools: owner `{{ $json.owner }}`, repo `{{ $json.repo }}`.\n\nFindings:\n```json\n{{ JSON.stringify($json.findings.map(f => ({ file: f.file, type: f.type, login: f.login, env: f.env, namespace: f.namespace, role: f.role, expires_at: f.expires_at })), null, 2) }}\n```",
+        "options": {
+          "systemMessage": "# Access review investigation\n\nYou are the investigator of Access Review Bot of the Company platform team.\nThe workflow has already found problematic RoleBindings in the `infra-rbac` repository\nand classified them (this part is deterministic and correct — do not re-check dates or roles).\nYour job is to find the context a human needs to act on each finding.\n\nFinding types:\n- `policy_violation` — the RoleBinding breaks a deny rule of the policy (P3 admin, P4 edit in prod);\n- `orphaned` — the user is no longer a member of any team;\n- `expired` — the access expiry date has passed;\n- `expiring_soon` — the access expires in the next few days.\n\n## Steps (strictly in this order)\n\n1. `filesystem_read_text_file` with path `/data/policies/access-policy.yaml` —\n   find the rule and the recommended action for each finding type (`review.findings`, `rules`).\n2. `github_get_file_contents` with path `CODEOWNERS` — the owner team of each namespace\n   (line `/clusters/*/<namespace>/`, team after `@company/`).\n3. `github_get_file_contents` with path `teams.yaml` — the lead of each owner team.\n4. For EACH finding: `github_list_commits` with `path` = the finding `file` and\n   `fields: [\"sha\", \"html_url\", \"commit\"]`. The LAST commit in the list is the one that added the access:\n   take its author name (`commit.author.name`), date (`commit.author.date`, first 10 chars) and `html_url`.\n5. Only for `orphaned` findings: `github_list_commits` once with `path: \"teams.yaml\"` and the same `fields`.\n   Find the commit whose message mentions the login — this is when the user was removed from the team.\n6. Answer with the JSON below and nothing else.\n\n## Rules\n\n- Use only what the tools returned. Never invent names, dates, commits or URLs. Unknown → `null`.\n- Never write e-mail addresses — only author names and logins.\n- `recommendation` is one sentence in Russian: the concrete action and who should do it\n  (for example: «Отозвать доступ: удалить файл, уведомить лида команды-владельца»).\n- For `policy_violation` always say which rule is broken and that the grant must be investigated.\n- `summary` is 2–3 sentences in Russian: what is urgent and what to do first.\n- Keep `file` and `type` of each finding exactly as in the input.\n\n## Answer format\n\n```json\n{\n  \"summary\": \"...\",\n  \"findings\": [\n    {\n      \"file\": \"clusters/prod/example/rolebindings/j-doe-edit.yaml\",\n      \"type\": \"policy_violation\",\n      \"owner_team\": \"example\",\n      \"owner_lead\": \"a.lead\",\n      \"granted_by\": \"Author Name\",\n      \"granted_at\": \"2030-01-01\",\n      \"grant_commit\": \"https://github.com/<owner>/<repo>/commit/<sha>\",\n      \"team_removal_commit\": null,\n      \"recommendation\": \"...\"\n    }\n  ]\n}\n```\n",
+          "maxIterations": 20,
+          "returnIntermediateSteps": true,
+          "enableStreaming": false
+        }
+      },
+      "id": "f89571d5-2c47-46a4-9ec4-c6674448bd6d",
+      "name": "Investigator agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1776,
+        -352
+      ]
+    },
+    {
+      "parameters": {
+        "model": "qwen2.5:14b",
+        "options": {
+          "think": false,
+          "temperature": 0,
+          "keepAlive": "30m",
+          "numCtx": 16384
+        }
+      },
+      "id": "a52ce25b-7f73-437d-9fa2-d01457432b4d",
+      "name": "Ollama qwen2.5:14b",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        -96
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "ollamaLocal",
+          "name": "Ollama local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://filesystem-mcp:8000/mcp",
+        "include": "selected",
+        "includeTools": [
+          "read_text_file"
+        ],
+        "options": {}
+      },
+      "id": "2bf8e863-d26a-41e4-8fdb-5bbd3374ac4d",
+      "name": "filesystem",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.4,
+      "position": [
+        1872,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://github-mcp:8000/mcp",
+        "include": "selected",
+        "includeTools": [
+          "get_file_contents",
+          "list_commits"
+        ],
+        "options": {}
+      },
+      "id": "4ec28f3a-06f7-44f2-b7ef-d6deccd5ebdc",
+      "name": "github",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.4,
+      "position": [
+        2000,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $('Classify findings').first().json;\nconst agentRan = $('Investigator agent').isExecuted;\nconst out = agentRan ? ($('Investigator agent').first().json.output ?? '') : '';\nconst steps = agentRan ? ($('Investigator agent').first().json.intermediateSteps ?? []) : [];\n\nlet inv = { summary: null, findings: [] };\nif (agentRan) {\n  try { inv = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1)); }\n  catch (e) { inv = { summary: 'Агент вернул невалидный JSON, расследование не выполнено.', findings: [] }; }\n}\n\nconst seen = JSON.stringify(steps.filter(s => (s.action?.tool ?? '').endsWith('list_commits')).map(s => s.observation));\nconst real = url => (typeof url === 'string' && url.includes('/commit/') && seen.includes(url.split('/commit/')[1].slice(0, 7))) ? url : null;\nlet dropped = 0;\n\nconst findings = c.findings.map(f => {\n  const i = (inv.findings ?? []).find(x => x.file === f.file && x.type === f.type) ?? {};\n  const grant = real(i.grant_commit), removal = real(i.team_removal_commit);\n  dropped += (i.grant_commit && !grant) + (i.team_removal_commit && !removal);\n  return { ...f, owner_team: i.owner_team ?? null, owner_lead: i.owner_lead ?? null,\n    granted_by: grant ? i.granted_by ?? null : null, granted_at: grant ? i.granted_at ?? null : null,\n    grant_commit: grant, team_removal_commit: removal, recommendation: i.recommendation ?? null };\n});\n\nconst TYPES = {\n  policy_violation: '🚨 Нарушение политики',\n  orphaned: '👤 Сотрудник не числится в командах',\n  expired: '⌛ Срок доступа истёк',\n  expiring_soon: `⏰ Истекает в ближайшие ${c.expiring_soon_days} дня`,\n};\nconst urgent = findings.filter(f => ['policy_violation', 'orphaned'].includes(f.type)).length;\nconst esc = v => String(v ?? '—').replace(/\\|/g, '\\\\|').replace(/\\n/g, ' ');\nconst link = (url, text) => url ? `[${text}](${url})` : '—';\n\nlet body = `## Ревизия доступов к Kubernetes — ${c.review_date}\\n\\n`;\nbody += `Проверено RoleBinding'ов: **${c.checked}**. Находок: **${findings.length}**, срочных: **${urgent}**.\\n\\n`;\nif (inv.summary) body += `${inv.summary}\\n\\n`;\nfor (const [type, title] of Object.entries(TYPES)) {\n  const list = findings.filter(f => f.type === type);\n  if (!list.length) continue;\n  body += `### ${title} (${list.length})\\n\\n| Кто | Где | Роль | Истекает | Выдан | Владелец | Что сделать |\\n|---|---|---|---|---|---|---|\\n`;\n  for (const f of list) {\n    const granted = f.grant_commit ? `${esc(f.granted_by)}, ${link(f.grant_commit, esc(f.granted_at))}` : '—';\n    const who = esc(f.login) + (f.team_removal_commit ? ` (${link(f.team_removal_commit, 'удалён из команды')})` : '');\n    const owner = f.owner_team ? `${esc(f.owner_team)} / ${esc(f.owner_lead)}` : '—';\n    body += `| ${who} | \\`${esc(f.file)}\\` | ${esc(f.role)} | ${esc(f.expires_at)} | ${granted} | ${owner} | ${esc(f.recommendation)} |\\n`;\n  }\n  body += '\\n';\n}\nif (!findings.length) body += 'Нарушений не найдено.\\n\\n';\nif (dropped) body += `> ⚠️ ${dropped} ссылок на коммиты от агента не подтвердились ответами GitHub и удалены.\\n\\n`;\nbody += `---\\n_Access Review Bot · n8n + Ollama · запуск: ${c.trigger} · вызовов инструментов агентом: ${steps.length}_\\n`;\n\nconst count = type => findings.filter(f => f.type === type).length;\nconst metrics = [\n  '# HELP access_review_last_success_timestamp_seconds Unix time of the last successful access review.',\n  '# TYPE access_review_last_success_timestamp_seconds gauge',\n  `access_review_last_success_timestamp_seconds ${Math.floor(Date.now() / 1000)}`,\n  '# HELP access_review_rolebindings_checked RoleBindings checked by the last review.',\n  '# TYPE access_review_rolebindings_checked gauge',\n  `access_review_rolebindings_checked ${c.checked}`,\n  '# HELP access_review_findings Findings of the last review by type.',\n  '# TYPE access_review_findings gauge',\n  ...Object.keys(TYPES).map(type => `access_review_findings{type=\"${type}\"} ${count(type)}`),\n  '# HELP access_review_urgent_findings Urgent findings (policy_violation, orphaned) of the last review.',\n  '# TYPE access_review_urgent_findings gauge',\n  `access_review_urgent_findings ${urgent}`,\n  '# HELP access_review_agent_tool_calls Tool calls made by the investigator agent in the last review.',\n  '# TYPE access_review_agent_tool_calls gauge',\n  `access_review_agent_tool_calls ${steps.length}`,\n  '# HELP access_review_agent_dropped_links Commit links from the agent not confirmed by GitHub (hallucinations).',\n  '# TYPE access_review_agent_dropped_links gauge',\n  `access_review_agent_dropped_links ${dropped}`,\n].join('\\n') + '\\n';\n\nreturn [{ json: {\n  metrics,\n  owner: c.owner, repo: c.repo, review_date: c.review_date, trigger: c.trigger,\n  title: `Access review ${c.review_date}: ${findings.length} findings (${urgent} urgent)`,\n  body, labels: urgent ? ['access-review', 'urgent'] : ['access-review'],\n  checked: c.checked, urgent, findings, dropped_links: dropped,\n  agent_tools: steps.map(s => s.action?.tool).filter(Boolean),\n} }];\n"
+      },
+      "id": "519f26d7-26f0-46be-b7de-d8391d2dac71",
+      "name": "Build issue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2176,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://github-mcp:8000/mcp",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "issue_write",
+          "cachedResultName": "issue_write"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ method: 'create', owner: $json.owner, repo: $json.repo, title: $json.title, body: $json.body, labels: $json.labels }) }}",
+        "options": {}
+      },
+      "id": "7e33504b-b512-4eae-82e5-7fc9dfaa273c",
+      "name": "Create issue",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1.1,
+      "position": [
+        2368,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const texts = o => typeof o === 'string'\n  ? (() => { try { const p = JSON.parse(o); return typeof p === 'object' && p ? texts(p) : [o]; } catch { return [o]; } })()\n  : Array.isArray(o) ? o.flatMap(texts)\n  : o && typeof o === 'object' ? Object.values(o).flatMap(texts) : [];\n\nconst b = $('Build issue').first().json;\nconst url = (texts($('Create issue').first().json).join('\\n').match(/https:\\/\\/github\\.com\\/[^\\s\"\\\\)]+\\/issues\\/\\d+/) ?? [])[0] ?? null;\nreturn [{ json: {\n  review_date: b.review_date, trigger: b.trigger, issue_url: url,\n  checked: b.checked, findings: b.findings.length, urgent: b.urgent, dropped_links: b.dropped_links,\n  details: b.findings.map(f => ({ type: f.type, login: f.login, granted_by: f.granted_by, commit: f.grant_commit, owner_lead: f.owner_lead })),\n  agent_tools: b.agent_tools,\n} }];\n"
+      },
+      "id": "21069b62-7c16-435a-ba58-568bfba8dff9",
+      "name": "Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2780,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://pushgateway:9091/metrics/job/access_review",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/plain; version=0.0.4",
+        "body": "={{ $('Build issue').first().json.metrics }}",
+        "options": {}
+      },
+      "id": "6d28a588-6031-4772-99bc-a8ece305bfcd",
+      "name": "Push metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2588,
+        16
+      ]
+    }
+  ],
+  "connections": {
+    "Weekly schedule": {
+      "main": [
+        [
+          {
+            "node": "Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual run": {
+      "main": [
+        [
+          {
+            "node": "Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API trigger": {
+      "main": [
+        [
+          {
+            "node": "Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare": {
+      "main": [
+        [
+          {
+            "node": "Read policy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read policy": {
+      "main": [
+        [
+          {
+            "node": "List repository tree",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List repository tree": {
+      "main": [
+        [
+          {
+            "node": "Select files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select files": {
+      "main": [
+        [
+          {
+            "node": "Read files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read files": {
+      "main": [
+        [
+          {
+            "node": "Classify findings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify findings": {
+      "main": [
+        [
+          {
+            "node": "Any findings?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any findings?": {
+      "main": [
+        [
+          {
+            "node": "Investigator agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build issue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Investigator agent": {
+      "main": [
+        [
+          {
+            "node": "Build issue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build issue": {
+      "main": [
+        [
+          {
+            "node": "Create issue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create issue": {
+      "main": [
+        [
+          {
+            "node": "Push metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama qwen2.5:14b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Investigator agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "filesystem": {
+      "ai_tool": [
+        [
+          {
+            "node": "Investigator agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "github": {
+      "ai_tool": [
+        [
+          {
+            "node": "Investigator agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Push metrics": {
+      "main": [
+        [
+          {
+            "node": "Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Moscow",
+    "binaryMode": "separate"
+  },
+  "pinData": {},
+  "meta": null,
+  "tags": [],
+  "active": false
+}

@@ -55,5 +55,49 @@ services:
     volumes:
       - ./mock/policies:/data/policies:ro
 
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    command:
+      - --config.file=/etc/blackbox/blackbox.yaml
+    volumes:
+      - ./blackbox/blackbox.yaml:/etc/blackbox/blackbox.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  pushgateway:
+    image: prom/pushgateway:latest
+    command:
+      - --persistence.file=/data/metrics
+      - --persistence.interval=1m
+    volumes:
+      - pushgateway_data:/data
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yaml:/etc/prometheus/alerts.yaml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
   n8n_data:
+  pushgateway_data:
+  prometheus_data:
+  grafana_data:

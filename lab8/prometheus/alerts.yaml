@@ -1,0 +1,27 @@
+groups:
+  - name: access-review
+    rules:
+      - alert: AccessReviewNotRun
+        expr: time() - access_review_last_success_timestamp_seconds > 8 * 24 * 3600
+        labels:
+          severity: critical
+        annotations:
+          summary: "Access review has not succeeded for more than 8 days"
+          description: "Last successful review was {{ $value | humanizeDuration }} ago. Check the schedule, n8n and the workflow executions."
+
+      - alert: AccessReviewFailed
+        expr: increase(n8n_workflow_failed_total{workflow_id="accessReview"}[1h]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Access review run failed"
+          description: "{{ $value | humanize }} failed run(s) of the Access Review workflow in the last hour. See n8n executions."
+
+      - alert: AccessReviewDependencyDown
+        expr: probe_success{job="dependencies"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.dependency }} is unavailable"
+          description: "{{ $labels.instance }} has been failing the probe for 5 minutes. The next access review will fail."
