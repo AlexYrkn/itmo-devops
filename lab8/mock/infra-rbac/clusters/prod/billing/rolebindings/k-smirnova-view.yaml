@@ -1,0 +1,18 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: access-k-smirnova-view
+  namespace: billing
+  annotations:
+    company.local/expires-at: "2026-11-30"
+    company.local/decision: "owner_approval"
+    company.local/policy-rule: "P9"
+    company.local/reason: "month-end reconciliation"
+subjects:
+  - kind: User
+    name: k.smirnova@company.local
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: view
+  apiGroup: rbac.authorization.k8s.io

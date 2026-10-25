@@ -1,0 +1,18 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: access-a-petrov-edit
+  namespace: payments
+  annotations:
+    company.local/expires-at: "2026-11-20"
+    company.local/decision: "auto_approve"
+    company.local/policy-rule: "P7"
+    company.local/reason: "own team service development"
+subjects:
+  - kind: User
+    name: a.petrov@company.local
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: edit
+  apiGroup: rbac.authorization.k8s.io

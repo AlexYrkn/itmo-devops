@@ -1,0 +1,39 @@
+version: 4
+
+roles:
+  view: read-only access (get/list/watch), no secrets
+  edit: create/update/delete workloads, no RBAC changes
+  admin: full namespace control
+
+environments: [stage, prod]
+
+max_duration_days: 30
+
+rules:
+  - id: P1
+    rule: only members of teams listed in teams.yaml can have access
+  - id: P2
+    rule: every namespace must have an owner team in CODEOWNERS
+  - id: P3
+    rule: admin is never granted, namespace changes go through the platform team
+  - id: P4
+    rule: edit in prod is never granted, prod changes go only through CI/CD; break-glass access is requested via on-call
+  - id: P5
+    rule: view in prod and edit in another team's namespace require approval of the owner team lead
+
+review:
+  schedule: every Monday 09:00
+  expiring_soon_days: 3
+  findings:
+    policy_violation:
+      when: the RoleBinding breaks P3 or P4
+      action: revoke urgently, find out who granted it and why, notify the owner team lead
+    orphaned:
+      when: the user is not a member of any team (P1), usually offboarded or moved
+      action: revoke, notify the owner team lead
+    expired:
+      when: expires-at is before the review date
+      action: revoke by deleting the RoleBinding file
+    expiring_soon:
+      when: expires-at is within expiring_soon_days from the review date
+      action: notify the owner team lead, the user should request an extension if still needed
