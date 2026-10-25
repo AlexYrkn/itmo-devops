@@ -1,0 +1,16 @@
+teams:
+  payments:
+    lead: m.ivanova
+    members: [m.ivanova, a.petrov, d.sokolov]
+  billing:
+    lead: k.smirnova
+    members: [k.smirnova, i.volkov]
+  risk:
+    lead: o.kuznetsova
+    members: [o.kuznetsova, n.orlov]
+  qa:
+    lead: e.fedorova
+    members: [e.fedorova, v.lebedev, s.morozova]
+  platform:
+    lead: r.belov
+    members: [r.belov, t.nikitin]

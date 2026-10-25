@@ -1,0 +1,4 @@
+*                          @company/platform
+/clusters/*/payments/      @company/payments
+/clusters/*/billing/       @company/billing
+/clusters/*/risk/          @company/risk

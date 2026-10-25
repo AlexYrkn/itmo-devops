@@ -1,0 +1,18 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: access-d-sokolov-edit
+  namespace: payments
+  annotations:
+    company.local/expires-at: "2026-11-15"
+    company.local/decision: "manual"
+    company.local/policy-rule: ""
+    company.local/reason: "hotfix PAY-1312, granted by hand"
+subjects:
+  - kind: User
+    name: d.sokolov@company.local
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: edit
+  apiGroup: rbac.authorization.k8s.io

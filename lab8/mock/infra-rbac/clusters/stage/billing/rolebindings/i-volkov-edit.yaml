@@ -1,0 +1,18 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: access-i-volkov-edit
+  namespace: billing
+  annotations:
+    company.local/expires-at: "2026-11-15"
+    company.local/decision: "auto_approve"
+    company.local/policy-rule: "P7"
+    company.local/reason: "invoice service rollout"
+subjects:
+  - kind: User
+    name: i.volkov@company.local
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: edit
+  apiGroup: rbac.authorization.k8s.io
