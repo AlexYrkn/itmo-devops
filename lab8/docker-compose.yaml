@@ -1,0 +1,59 @@
+name: access-review
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.44.6
+    ports:
+      - "5678:5678"
+    environment:
+      GENERIC_TIMEZONE: Europe/Moscow
+      TZ: Europe/Moscow
+      N8N_METRICS: "true"
+      N8N_METRICS_INCLUDE_DEFAULT_METRICS: "true"
+      N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL: "true"
+      N8N_METRICS_INCLUDE_WORKFLOW_NAME_LABEL: "true"
+      N8N_METRICS_INCLUDE_NODE_TYPE_LABEL: "true"
+      N8N_METRICS_INCLUDE_API_ENDPOINTS: "true"
+      N8N_METRICS_INCLUDE_MESSAGE_EVENT_BUS_METRICS: "true"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - github-mcp
+      - filesystem-mcp
+
+  github-mcp:
+    build: ./github-mcp
+    command:
+      - --stdio
+      - github-mcp-server stdio --tools get_repository_tree,get_file_contents,list_commits,issue_write
+      - --outputTransport
+      - streamableHttp
+      - --stateful
+      - --port
+      - "8000"
+      - --healthEndpoint
+      - /healthz
+    environment:
+      GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PAT:?set GITHUB_PAT in .env}
+
+  filesystem-mcp:
+    image: supercorp/supergateway:latest
+    command:
+      - --stdio
+      - npx -y @modelcontextprotocol/server-filesystem /data/policies
+      - --tools
+      - read_text_file
+      - --outputTransport
+      - streamableHttp
+      - --stateful
+      - --port
+      - "8000"
+      - --healthEndpoint
+      - /healthz
+    volumes:
+      - ./mock/policies:/data/policies:ro
+
+volumes:
+  n8n_data:
